@@ -10,7 +10,7 @@ running = True
 fovx = math.pi / 2
 fovy = math.pi *.375
 indexAir = 1
-indexLens = 1.5
+indexLens = 10
 #an array representing the screen of 12 pixels. Each pixel is a vector of length 6 representing xy angle (theta), z angle (phi), x, y, and z positions, and alpha insensity value
 pixels = np.array([[[0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,0]],
                    [[0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,0]],
@@ -61,24 +61,24 @@ def wallCollision(ray, object):
     return ray
 
 def lensCollision(ray, object):
-    xvec1 = np.array([ray[2] - object[2], ray[0]])
-    zvec1 = np.array([ray[4] - object[4], ray[1]])
-    matrix1 = np.array([[1,0],[(indexLens-indexAir)/(indexAir * 10 * math.pow(object[5],2)),indexLens/indexAir]])
+    xvec1 = np.array([object[2] - ray[2], ray[0]])
+    zvec1 = np.array([object[4] - ray[4], ray[1]])
+    matrix1 = np.array([[1,0],[(indexLens-indexAir)/(indexAir * object[5]),indexLens/indexAir]])
     matrix2 = np.array([[1,4],[0,1]])
-    matrix3 = np.array([[1,0],[(indexAir-indexLens)/(indexLens * 10 * math.pow(object[5],2)),indexAir/indexLens]])
+    matrix3 = np.array([[1,0],[(indexAir-indexLens)/(indexLens * object[5]),indexAir/indexLens]])
     lensMatrix = np.matmul(matrix1,matrix2)
     lensMatrix = np.matmul(lensMatrix, matrix3)
     print(lensMatrix)
-    print(xvec1[1])
+    print(xvec1)
     xvec2 = np.matmul(lensMatrix, xvec1)
     print(xvec2[1])
     zvec2 = np.matmul(lensMatrix, zvec1)
     if ray[3] < object[3]:
-        ray[3] += 4
+        ray[3] += object[5] * 0.3
     else:
-        ray[3] -= 4
-    #ray[2] += xvec2[0]
-    #ray[4] += zvec2[0]
+        ray[3] -= object[5] * 0.3
+    ray[2] = xvec2[0] + object[2]
+    ray[4] = zvec2[0] + object[4]
     ray[0] = xvec2[1]
     ray[1] = zvec2[1]
     return ray
@@ -90,7 +90,13 @@ for i in range(pixels.shape[0]):
         pixels[i, j, 1] = (-1 * fovy / 2) + (i + 1) * (fovy / 4)
         #pixels[i, j, 2] = -150 + 100 * j
         #pixels[i, j, 4] = 100 - 100 * i
-
+'''
+for i in range(pixels.shape[0]):
+    for j in range(pixels.shape[1]):
+        pixels[i, j, 0] = 0
+        pixels[i, j, 1] = 0
+        pixels[i,j,2] = -15 + 10 * i
+'''
 def dotProduct(vec1, vec2):
     return vec1[0] * vec2[0] + vec1[1] * vec2[1] + vec1[2] * vec2[2]
 def crossProduct(vec1, vec2):
@@ -150,28 +156,9 @@ def collision(pixels, object):
                     print((math.pow(object[2] - pixels[i,j,2],2) + math.pow(object[4] - pixels[i,j,4],2)) + object[5] * (pixels[i,j,3] - object[3] - 1))
                     time.sleep(0.1)
 '''
-                if ((math.pow(object[2] - pixels[i,j,2],2) + math.pow(object[4] - pixels[i,j,4], 2)) - (math.pow(object[5],2) * (pixels[i,j,3] - object[3] + 2))) <= 0 and (math.pow(object[2] - pixels[i,j,2],2) + math.pow(object[4] - pixels[i,j,4],2)) + math.pow(object[5],2) * (pixels[i,j,3] - object[3] - 2) <= 0 :
+                if ((math.pow(object[2] - pixels[i,j,2],2) + math.pow(object[4] - pixels[i,j,4], 2)) + math.pow(object[3] - pixels[i,j,3] + 0.87 * object[5],2)) <= math.pow(object[5],2) and (math.pow(object[2] - pixels[i,j,2],2) + math.pow(object[4] - pixels[i,j,4], 2)) + math.pow(object[3] - pixels[i,j,3] - 0.87 * object[5],2) <= math.pow(object[5],2) :
                     output[i,j] = 0
                     #time.sleep(0.1)
-        '''for i in range(pixels.shape[0]):
-            for j in range(pixels.shape[1]):
-                for k in range(4):
-                    coords = objectToCoords(objects[k])
-                    output[i, j] = k
-                    for l in range (3):
-                        if coords[l, 0] * pixels[i, j, 2] + coords[l, 1] * pixels[i, j, 3] + coords[l, 2] * pixels[i, j, 5] <= coords[l, 3]:
-                            output[i, j] = -1
-                    if (pixels[i, j, 2] == objects[k, 2]):
-                        output[i, j] = 1
-                    if (pixels[i, j, 3] == objects[k, 3]) and (output[i, j] == 1):
-                        output[i, j] = 1
-                    else:
-                        output[i, j] = 0
-                    if (pixels[i, j, 4] == objects[k, 4]) and (output[i, j] == 1):
-                        output[i, j] = 1
-                    else:
-                        output[i, j] = 0
-                        '''
     elif object[6] == 1:
         print ("box collision")
     elif object[6] == 2:
@@ -239,8 +226,10 @@ def drawAtMouse(obj_type, size):
     if pos[1] > (30 + size/2):
         font = pg.font.SysFont("Arial", size)
         if(obj_type == 0):
-            img = pg.font.Font.render(font, "()", 1, color)
-            screen.blit(img, (pos[0] - size/4, pos[1] - size * 0.6))
+            pg.draw.arc(screen,color,(pos[0] - .8 * size, pos[1] - size/2,size,size),-math.pi/4,math.pi/4,1)
+            pg.draw.arc(screen,color,(pos[0] - .2 * size, pos[1] - size/2,size,size),3 * math.pi/4, 5 * math.pi/4,1)
+            #img = pg.font.Font.render(font, "()", 1, color)
+            #screen.blit(img, (pos[0] - size/4, pos[1] - size * 0.6))
         elif(obj_type == 1):
             img = pg.font.Font.render(font, "□", 1, color)
             screen.blit(img, (pos[0] - size/2, pos[1] - size))
@@ -250,7 +239,7 @@ def drawAtMouse(obj_type, size):
         elif(obj_type == 3):
             img = pg.font.Font.render(font, "☼", 1, color)
             screen.blit(img, (pos[0] - size/2, pos[1] - size*.6))
-        img = pg.transform.rotate(img, angle)
+        #img = pg.transform.rotate(img, angle)
         
 def drawObjects():
     for i in range(objects.shape[0]):
@@ -268,8 +257,11 @@ def drawObjects():
             font = pg.font.SysFont("Arial", int(2 * objects[i][5]))
         
         if objects[i][6] == 0:
-            img = pg.font.Font.render(font, "()", 1, color)
-            screen.blit(img, (objects[i][3] - objects[i,5]/2, objects[i][2] - objects[i,5]*1.2 + 150))
+            #img = pg.font.Font.render(font, "()", 1, color)
+            #screen.blit(img, (objects[i][3] - objects[i,5]/2, objects[i][2] - objects[i,5]*1.2 + 150))
+            pg.draw.arc(screen,color,(objects[i][3] - .8 * objects[i,5], objects[i][2] - objects[i,5]/2 + 150,objects[i,5],objects[i,5]),-math.pi/4,math.pi/4,1)
+            pg.draw.arc(screen,color,(objects[i][3] - .2 * objects[i,5], objects[i][2] - objects[i,5]/2 + 150,objects[i,5],objects[i,5]),3 * math.pi/4, 5 * math.pi/4,1)
+            pg.display.flip()
         elif objects[i][6] == 1:
             img = pg.font.Font.render(font, "□", 1, color)
         elif objects[i][6] == 2:
@@ -277,7 +269,7 @@ def drawObjects():
         elif objects[i][6] == 3:
             img = pg.font.Font.render(font, "☼", 1, color)
             screen.blit(img, (objects[i][3] - objects[i,5], objects[i][2] - objects[i,5]*1.2 + 150))
-        img = pg.transform.rotate(img, objects[i, 0])
+        #img = pg.transform.rotate(img, objects[i, 0])
         #pg.draw.line(screen,"black",(0,objects[i,2] + 150),(400,objects[i,2] + 150),2)
         #pg.draw.line(screen,"black",(objects[i,3],0),(objects[i,3],300),2)
         #pg.draw.line(screen,"black",(0,objects[i,2] - objects[i,5] + 150),(400,objects[i,2] - objects[i,5] + 150),2)
@@ -390,7 +382,10 @@ while running:
                     #objects[placed_objects][2] = pos[0] - size/3
                     #objects[placed_objects][3] = pos[1] - size
                     objects[placed_objects][4] = height
-                    objects[placed_objects][5] = size/2
+                    if obj_type == 0:
+                        objects[placed_objects][5] = size
+                    elif obj_type == 3:
+                        objects[placed_objects][5] = size / 2
                     objects[placed_objects][6] = obj_type
                     placed_objects += 1
                 
