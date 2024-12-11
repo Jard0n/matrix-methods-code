@@ -11,7 +11,7 @@ fovx = math.pi / 2
 fovy = math.pi *.375
 indexAir = 1
 indexLens = 1.5
-#an array representing the screen of 12 pixels. Each pixel is a vector of length 8 representing xy angle (theta), z angle (phi), x, y, and z positions, and alpha insensity value
+#an array representing the screen of 12 pixels. Each pixel is a vector of length 6 representing xy angle (theta), z angle (phi), x, y, and z positions, and alpha insensity value
 pixels = np.array([[[0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,0]],
                    [[0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,0]],
                    [[0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,0], [0,0,0,0,0,0]]], dtype = float)
@@ -61,14 +61,17 @@ def wallCollision(ray, object):
     return ray
 
 def lensCollision(ray, object):
-    xvec1 = np.array([ray[2] - object[2],ray[0]])
+    xvec1 = np.array([ray[2] - object[2], ray[0]])
     zvec1 = np.array([ray[4] - object[4], ray[1]])
     matrix1 = np.array([[1,0],[(indexLens-indexAir)/(indexAir * 10 * math.pow(object[5],2)),indexLens/indexAir]])
     matrix2 = np.array([[1,4],[0,1]])
-    matrix3 = np.array([[1,0],[(indexAir-indexLens)/(indexLens*10*math.pow(object[5],2)),indexAir/indexLens]])
+    matrix3 = np.array([[1,0],[(indexAir-indexLens)/(indexLens * 10 * math.pow(object[5],2)),indexAir/indexLens]])
     lensMatrix = np.matmul(matrix1,matrix2)
     lensMatrix = np.matmul(lensMatrix, matrix3)
-    xvec2 = np.matmul(lensMatrix,xvec1)
+    print(lensMatrix)
+    print(xvec1[1])
+    xvec2 = np.matmul(lensMatrix, xvec1)
+    print(xvec2[1])
     zvec2 = np.matmul(lensMatrix, zvec1)
     if ray[3] < object[3]:
         ray[3] += 4
@@ -227,24 +230,36 @@ def drawAtMouse(obj_type, size):
     global placed_objects
     global objects
     pos = pg.mouse.get_pos()
-    if pos[1] > (35 + size):
+    if int(height) >= -255 and int(height) <= 255:
+        color = pg.Color(0, 255-int((255 + height)/2), int((height + 255)/2))
+    elif int(height) < 0:
+        color = pg.Color(0, 255, 0)
+    else:
+        color = pg.Color(255,0,0)
+    if pos[1] > (30 + size/2):
         font = pg.font.SysFont("Arial", size)
         if(obj_type == 0):
-            img = pg.font.Font.render(font, "()", 1, "black")
+            img = pg.font.Font.render(font, "()", 1, color)
             screen.blit(img, (pos[0] - size/4, pos[1] - size * 0.6))
         elif(obj_type == 1):
-            img = pg.font.Font.render(font, "□", 1, "black")
+            img = pg.font.Font.render(font, "□", 1, color)
             screen.blit(img, (pos[0] - size/2, pos[1] - size))
         elif(obj_type == 2):
-            img = pg.font.Font.render(font, "○", 1, "black")
+            img = pg.font.Font.render(font, "○", 1, color)
             screen.blit(img, (pos[0] - size/2, pos[1] - size))
         elif(obj_type == 3):
-            img = pg.font.Font.render(font, "☼", 1, "black")
+            img = pg.font.Font.render(font, "☼", 1, color)
             screen.blit(img, (pos[0] - size/2, pos[1] - size*.6))
         img = pg.transform.rotate(img, angle)
         
 def drawObjects():
     for i in range(objects.shape[0]):
+        if int(objects[i,4]) >= -255 and int(objects[i,4]) <= 255:
+            color = pg.Color(0, 255-int((255 + objects[i,4])/2), int((objects[i,4] + 255)/2))
+        elif int(objects[i,4]) < 0:
+            color = pg.Color(0, 255, 0)
+        else:
+            color = pg.Color(255,0,0)
         if objects[i][5] == 0:
             continue
         elif objects[i][6] == 4:
@@ -253,14 +268,14 @@ def drawObjects():
             font = pg.font.SysFont("Arial", int(2 * objects[i][5]))
         
         if objects[i][6] == 0:
-            img = pg.font.Font.render(font, "()", 1, "black")
+            img = pg.font.Font.render(font, "()", 1, color)
             screen.blit(img, (objects[i][3] - objects[i,5]/2, objects[i][2] - objects[i,5]*1.2 + 150))
         elif objects[i][6] == 1:
-            img = pg.font.Font.render(font, "□", 1, "black")
+            img = pg.font.Font.render(font, "□", 1, color)
         elif objects[i][6] == 2:
-            img = pg.font.Font.render(font, "○", 1, "black")
+            img = pg.font.Font.render(font, "○", 1, color)
         elif objects[i][6] == 3:
-            img = pg.font.Font.render(font, "☼", 1, "black")
+            img = pg.font.Font.render(font, "☼", 1, color)
             screen.blit(img, (objects[i][3] - objects[i,5], objects[i][2] - objects[i,5]*1.2 + 150))
         img = pg.transform.rotate(img, objects[i, 0])
         #pg.draw.line(screen,"black",(0,objects[i,2] + 150),(400,objects[i,2] + 150),2)
@@ -317,10 +332,10 @@ while running:
                 if (size + event.y) > 3:
                     size += event.y
             elif event.type == pg.KEYDOWN:
-                if event.key == pg.K_UP and height < 110:
-                    height -= 10
-                elif event.key == pg.K_UP and height > -110:
-                    height += 10
+                if event.key == pg.K_DOWN and height > -110:
+                    height -= 30
+                elif event.key == pg.K_UP and height < 110:
+                    height += 30
                 elif event.key == pg.K_LEFT:
                     angle += 5
                 elif event.key == pg.K_RIGHT:
